@@ -1,5 +1,14 @@
 # SiHAS Canary
 
+> **RCM fork maintained by brain-choi**
+>
+> Based on [cmsong-shina/sihas-canary](https://github.com/cmsong-shina/sihas-canary)
+> v2.1.1, with four-channel RCM-300 local relay support.
+> See [RCM protocol, installation, testing and migration notes](docs/rcm.md).
+> Install a [published release](https://github.com/brain-choi/sihas-canary/releases)
+> from this repository to retain the RCM changes across updates.
+
+
 # 개요
 
 [시하스 Wi-Fi 장치](https://sihas.co.kr/) to [HA](https://www.home-assistant.io/) 연동을 위한 컴포넌트입니다.

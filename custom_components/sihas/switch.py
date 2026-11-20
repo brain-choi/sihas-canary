@@ -23,6 +23,7 @@ from .const import (
 from .packet_builder import packet_builder
 from .sender import send
 from .sihas_base import SihasEntity
+from .rcm import RcmRelay, RcmRelayController
 
 SCAN_INTERVAL = timedelta(seconds=5)
 
@@ -40,7 +41,16 @@ PLATFORM_SCHEMA = SIHAS_PLATFORM_SCHEMA
 async def async_setup_entry(
     hass: HomeAssistant, entry: ConfigEntry, async_add_entities: AddEntitiesCallback
 ) -> None:
-    if entry.data[CONF_TYPE] == "BCM":
+    if entry.data[CONF_TYPE] == "RCM":
+        controller = RcmRelayController(entry.data[CONF_IP])
+        async_add_entities(
+            [
+                RcmRelay(controller, entry.data[CONF_MAC], entry.data[CONF_NAME], channel)
+                for channel in range(4)
+            ],
+            update_before_add=True,
+        )
+    elif entry.data[CONF_TYPE] == "BCM":
         coordinator = get_coordinator(hass, entry)
         entities = [BcmTimer(coordinator)]
         if coordinator.has_bath:

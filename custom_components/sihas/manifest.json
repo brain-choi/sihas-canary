@@ -2,7 +2,7 @@
   "domain": "sihas",
   "name": "sihas",
   "config_flow": true,
-  "documentation": "https://github.com/cmsong-shina/sihas-canary",
+  "documentation": "https://github.com/brain-choi/sihas-canary",
   "zeroconf": [
     "_sihas._tcp.local."
   ],
@@ -21,9 +21,9 @@
     }
   ],
   "codeowners": [
-    "@cmsong-shina"
+    "@brain-choi"
   ],
   "iot_class": "local_polling",
-  "version": "2.1.1",
-  "issue_tracker": "https://github.com/cmsong-shina/sihas-canary/issues"
+  "version": "2.1.2",
+  "issue_tracker": "https://github.com/brain-choi/sihas-canary/issues"
 }
