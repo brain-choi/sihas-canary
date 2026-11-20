@@ -40,10 +40,12 @@ check the actual device state before retrying a consequential operation.
 2. Back up Home Assistant settings before changing the installed source.
 3. Add `https://github.com/brain-choi/sihas-canary` through Marketplace's **Add
    from link** option (or HACS custom repositories) and select a published release.
-   Only one repository may install the `sihas` domain at a time. Switch ownership
-   away from the original repository first; do not delete the SiHAS configuration
-   entry in **Devices & services**. Inspect the uninstall dialog before proceeding
-   and preserve existing configuration entries if offered.
+   Only one repository may install the `sihas` domain at a time. For an existing
+   installation, **do not use Marketplace's configuration-delete-and-remove
+   action**: it deletes the existing configuration entries. Transfer the package
+   source metadata while retaining those entries, then install the fork. This
+   deployment used a temporary admin-only migration helper with rollback on
+   installation failure; the helper is not part of the released integration.
 4. Restart Home Assistant after replacing an already-loaded integration.
 5. For a new installation only, add SiHAS with device type `RCM`, its IP and MAC,
    and the device's reported CFG. Existing configured devices need no re-adding.
