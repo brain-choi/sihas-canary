@@ -8,6 +8,7 @@ from homeassistant.core import HomeAssistant
 
 from .bcm import BcmCoordinator
 from .gcm import GcmCoordinator
+from .wcm import WcmCoordinator
 from .const import CONF_TYPE, DOMAIN
 
 _LOGGER = logging.getLogger(__name__)
@@ -28,6 +29,18 @@ PLATFORMS: list[str] = [
 async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry):
     # NOTE: how about checking supported type at here?
     _LOGGER.info(f"entry setuped: {entry.data}")
+
+    if entry.data[CONF_TYPE] == "WCM":
+        coordinator = WcmCoordinator(hass, entry)
+        try:
+            await coordinator.async_config_entry_first_refresh()
+            hass.data.setdefault(DOMAIN, {})[entry.entry_id] = coordinator
+            await hass.config_entries.async_forward_entry_setups(entry, PLATFORMS)
+        except BaseException:
+            await coordinator.async_shutdown()
+            hass.data.get(DOMAIN, {}).pop(entry.entry_id, None)
+            raise
+        return True
 
     # BCM를 여러 엔티티로 구성하기위해 전용 코디네이터를 구성한다.
     if entry.data[CONF_TYPE] == "BCM":
@@ -52,7 +65,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry):
 async def async_unload_entry(hass: HomeAssistant, entry: ConfigEntry):
     _LOGGER.info(f"entry unloadded: {entry.data}")
     unload_ok = await hass.config_entries.async_unload_platforms(entry, PLATFORMS)
-    if unload_ok and entry.data[CONF_TYPE] in ("BCM", "GCM"):
+    if unload_ok and entry.data[CONF_TYPE] in ("BCM", "GCM", "WCM"):
         coordinator = hass.data[DOMAIN][entry.entry_id]
         await coordinator.async_shutdown()
         hass.data[DOMAIN].pop(entry.entry_id)

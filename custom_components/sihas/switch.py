@@ -24,6 +24,13 @@ from .packet_builder import packet_builder
 from .sender import send
 from .sihas_base import SihasEntity
 from .rcm import RcmRelay, RcmRelayController
+from .wcm import (
+    CHANNEL_COUNT,
+    WcmOutlet,
+    WcmSetting,
+    WcmSettingSwitch,
+    get_coordinator as get_wcm_coordinator,
+)
 
 SCAN_INTERVAL = timedelta(seconds=5)
 
@@ -41,7 +48,17 @@ PLATFORM_SCHEMA = SIHAS_PLATFORM_SCHEMA
 async def async_setup_entry(
     hass: HomeAssistant, entry: ConfigEntry, async_add_entities: AddEntitiesCallback
 ) -> None:
-    if entry.data[CONF_TYPE] == "RCM":
+    if entry.data[CONF_TYPE] == "WCM":
+        coordinator = get_wcm_coordinator(hass, entry)
+        async_add_entities(
+            [WcmOutlet(coordinator, channel) for channel in range(CHANNEL_COUNT)]
+            + [
+                WcmSettingSwitch(coordinator, channel, setting)
+                for channel in range(CHANNEL_COUNT)
+                for setting in (WcmSetting.BUTTON_LOCK, WcmSetting.AUTO_OFF_ENABLED)
+            ]
+        )
+    elif entry.data[CONF_TYPE] == "RCM":
         controller = RcmRelayController(entry.data[CONF_IP])
         async_add_entities(
             [

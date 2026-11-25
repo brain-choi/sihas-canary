@@ -1,10 +1,16 @@
 # SiHAS Canary
 
-> **RCM fork maintained by brain-choi**
+> **RCM/WCM fork maintained by brain-choi**
 >
 > Based on [cmsong-shina/sihas-canary](https://github.com/cmsong-shina/sihas-canary)
-> v2.1.1, with four-channel RCM-300 local relay support.
+> v2.1.1, with four-channel RCM-300 local relay support and WCM-300-W local support.
 > See [RCM protocol, installation, testing and migration notes](docs/rcm.md).
+> See [WCM outlets, settings, power registers and verification status](docs/wcm.md).
+> All four WCM power registers are verified against the app; their sum is a calculated total.
+> WCM voltage is verified at register 60, with raw values divided by 10 for volts.
+> WCM frequency uses the user-confirmed register 62 / 10 Hz mapping.
+> WCM current uses the user-confirmed register 61 in mA, divided by 1000 for A.
+> WCM settings include per-outlet button lock, overload and standby cutoff, and auto-off timers.
 > Install a [published release](https://github.com/brain-choi/sihas-canary/releases)
 > from this repository to retain the RCM changes across updates.
 

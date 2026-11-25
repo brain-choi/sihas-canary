@@ -1,4 +1,4 @@
-name: RCM tests
+name: SiHAS device tests
 
 on:
   push:

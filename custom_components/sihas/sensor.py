@@ -46,6 +46,13 @@ from .const import (
 )
 from .sihas_base import SihasEntity, SihasProxy, SihasSubEntity
 from .util import register_put_u32
+from .wcm import (
+    WcmCurrentSensor,
+    WcmFrequencySensor,
+    WcmPowerSensor,
+    WcmVoltageSensor,
+    get_coordinator as get_wcm_coordinator,
+)
 
 SCAN_INTERVAL = timedelta(seconds=10)
 
@@ -219,6 +226,17 @@ async def async_setup_entry(
     hass: HomeAssistant, entry: ConfigEntry, async_add_entities: AddEntitiesCallback
 ) -> None:
     match entry.data[CONF_TYPE]:
+        case "WCM":
+            coordinator = get_wcm_coordinator(hass, entry)
+            async_add_entities([
+                WcmPowerSensor(coordinator, channel) for channel in range(4)
+            ] + [
+                WcmPowerSensor(coordinator, None),
+                WcmVoltageSensor(coordinator),
+                WcmCurrentSensor(coordinator),
+                WcmFrequencySensor(coordinator),
+            ])
+
         case "GCM":
             coordinator = get_gcm_coordinator(hass, entry)
             async_add_entities([

@@ -1,4 +1,4 @@
-"""BCM temperature set points independent of power and operation mode."""
+"""Numeric settings for BCM and WCM devices."""
 
 from homeassistant.components.number import NumberDeviceClass, NumberEntity, NumberMode
 from homeassistant.config_entries import ConfigEntry
@@ -16,6 +16,7 @@ from .bcm import (
     get_coordinator,
 )
 from .const import CONF_TYPE
+from .wcm import CHANNEL_COUNT, WcmSetting, WcmSettingNumber, get_coordinator as get_wcm_coordinator
 
 PARALLEL_UPDATES = 0
 
@@ -23,6 +24,20 @@ PARALLEL_UPDATES = 0
 async def async_setup_entry(
     hass: HomeAssistant, entry: ConfigEntry, async_add_entities: AddEntitiesCallback
 ) -> None:
+    if entry.data[CONF_TYPE] == "WCM":
+        coordinator = get_wcm_coordinator(hass, entry)
+        async_add_entities(
+            [
+                WcmSettingNumber(coordinator, channel, setting)
+                for channel in range(CHANNEL_COUNT)
+                for setting in (
+                    WcmSetting.OVERLOAD_CUTOFF,
+                    WcmSetting.STANDBY_CUTOFF,
+                    WcmSetting.AUTO_OFF_MINUTES,
+                )
+            ]
+        )
+        return
     if entry.data[CONF_TYPE] != "BCM":
         return
     coordinator = get_coordinator(hass, entry)
