@@ -88,6 +88,15 @@ class ClientTests(unittest.TestCase):
                 self.device.response_filter = lambda req, resp: bytes.fromhex(fixture["responseHex"])
                 self.assertEqual(self.client.read().device_time, tuple(fixture["expectedDeviceTime"]))
 
+    def test_accumulated_energy_from_actual_device_packet(self):
+        fixtures = json.loads((ROOT / "tests/fixtures/wcm_device_time_readback.json").read_text())
+        fixture = next(item for item in fixtures if item["rawDeviceTime"] == 41042)
+        builder._pid = int(fixture["requestHex"][:4], 16) - 1
+        self.device.response_filter = lambda req, resp: bytes.fromhex(fixture["responseHex"])
+        state = self.client.read()
+        self.assertEqual([state.energy_wh(channel) for channel in range(4)], [11, 8, 41, 4])
+        self.assertEqual(state.total_energy_wh, 64)
+
     def test_current_register_from_captured_kettle_response(self):
         fixture = json.loads((ROOT / "tests/fixtures/wcm_current_6575.json").read_text())
         builder._pid = int(fixture["requestHex"][:4], 16) - 1
@@ -276,6 +285,8 @@ class CoordinatorTests(unittest.IsolatedAsyncioTestCase):
         durations = [entity for entity in numbers if entity.setting is wcm.WcmSetting.AUTO_OFF_MINUTES]
         cutoffs = [entity for entity in numbers if entity.setting is not wcm.WcmSetting.AUTO_OFF_MINUTES]
         powers = [wcm.WcmPowerSensor(self.coordinator, i) for i in range(4)]
+        energy = [wcm.WcmEnergySensor(self.coordinator, i) for i in range(4)]
+        energy_total = wcm.WcmEnergySensor(self.coordinator, None)
         total = wcm.WcmPowerSensor(self.coordinator, None)
         voltage = wcm.WcmVoltageSensor(self.coordinator)
         current = wcm.WcmCurrentSensor(self.coordinator)
@@ -307,8 +318,8 @@ class CoordinatorTests(unittest.IsolatedAsyncioTestCase):
         )
         self.assertEqual(timers[0]._attr_unique_id, "WCM-aa:bb:cc:dd:ee:ff-auto-off-timer-1")
         self.assertEqual(durations[1]._attr_unique_id, "WCM-aa:bb:cc:dd:ee:ff-auto-off-time-2")
-        entities = switches + numbers + powers + [total, voltage, current, frequency, clock]
-        self.assertEqual(len({e._attr_unique_id for e in entities}), 33)
+        entities = switches + numbers + powers + energy + [total, energy_total, voltage, current, frequency, clock]
+        self.assertEqual(len({e._attr_unique_id for e in entities}), 38)
         self.assertTrue(all(e._attr_device_info["identifiers"] == {("sihas", "aa:bb:cc:dd:ee:ff")} for e in entities))
         self.assertEqual([request[7] for request in self.device.calls], [3])
 
@@ -331,6 +342,32 @@ class CoordinatorTests(unittest.IsolatedAsyncioTestCase):
         self.device.online = True
         await self.coordinator.async_refresh()
         self.assertEqual(clock.native_value, "목요일 05:07")
+
+    async def test_energy_sensors_show_kwh_and_sum_current_outlet_counts(self):
+        sensors = [wcm.WcmEnergySensor(self.coordinator, channel) for channel in range(4)]
+        total = wcm.WcmEnergySensor(self.coordinator, None)
+        self.device.registers[18:26] = [11, 0, 8, 0, 41, 0, 4, 0]
+        await self.coordinator.async_config_entry_first_refresh()
+        self.assertEqual([sensor.native_value for sensor in sensors], [0.011, 0.008, 0.041, 0.004])
+        self.assertEqual(total.native_value, 0.064)
+        self.assertEqual(total._attr_name, "전체 누적 사용량")
+        self.assertEqual(total._attr_unique_id, "WCM-aa:bb:cc:dd:ee:ff-energy-total")
+        self.assertTrue(all(sensor._attr_native_unit_of_measurement == "kWh" for sensor in sensors + [total]))
+        self.assertTrue(all(sensor._attr_state_class == "total_increasing" for sensor in sensors))
+        self.assertIsNone(total._attr_state_class)
+
+        # A single outlet's reset changes the displayed sum, and unverified
+        # neighboring words must not inflate the energy counters.
+        self.device.registers[22:24] = [0, 1]
+        await self.coordinator.async_refresh()
+        self.assertEqual(sensors[2].native_value, 0)
+        self.assertEqual(total.native_value, 0.023)
+        self.device.online = False
+        await self.coordinator.async_refresh()
+        self.assertTrue(all(sensor.native_value is None for sensor in sensors + [total]))
+        self.device.online = True
+        await self.coordinator.async_refresh()
+        self.assertEqual(total.native_value, 0.023)
 
     async def test_ha_controls_validate_values_and_publish_device_readback(self):
         self.device.registers[8:15] = [0x0002, 0x6460, 0x6160, 0x3000, 0x34D2, 0x3000, 0x3007]

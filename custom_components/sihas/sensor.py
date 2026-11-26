@@ -47,8 +47,10 @@ from .const import (
 from .sihas_base import SihasEntity, SihasProxy, SihasSubEntity
 from .util import register_put_u32
 from .wcm import (
+    CHANNEL_COUNT,
     WcmCurrentSensor,
     WcmDeviceTimeSensor,
+    WcmEnergySensor,
     WcmFrequencySensor,
     WcmPowerSensor,
     WcmVoltageSensor,
@@ -230,9 +232,12 @@ async def async_setup_entry(
         case "WCM":
             coordinator = get_wcm_coordinator(hass, entry)
             async_add_entities([
-                WcmPowerSensor(coordinator, channel) for channel in range(4)
+                WcmPowerSensor(coordinator, channel) for channel in range(CHANNEL_COUNT)
+            ] + [
+                WcmEnergySensor(coordinator, channel) for channel in range(CHANNEL_COUNT)
             ] + [
                 WcmPowerSensor(coordinator, None),
+                WcmEnergySensor(coordinator, None),
                 WcmVoltageSensor(coordinator),
                 WcmCurrentSensor(coordinator),
                 WcmFrequencySensor(coordinator),

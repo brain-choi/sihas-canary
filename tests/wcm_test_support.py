@@ -134,8 +134,12 @@ def load_modules():
         modules[name] = types.ModuleType(name)
         modules[name].__path__ = []
     modules["homeassistant.components.sensor"].SensorEntity = type("SensorEntity", (Entity,), {})
-    modules["homeassistant.components.sensor"].SensorDeviceClass = types.SimpleNamespace(POWER="power", VOLTAGE="voltage", CURRENT="current", FREQUENCY="frequency")
-    modules["homeassistant.components.sensor"].SensorStateClass = types.SimpleNamespace(MEASUREMENT="measurement")
+    modules["homeassistant.components.sensor"].SensorDeviceClass = types.SimpleNamespace(
+        POWER="power", VOLTAGE="voltage", CURRENT="current", FREQUENCY="frequency", ENERGY="energy"
+    )
+    modules["homeassistant.components.sensor"].SensorStateClass = types.SimpleNamespace(
+        MEASUREMENT="measurement", TOTAL_INCREASING="total_increasing"
+    )
     modules["homeassistant.components.switch"].SwitchEntity = type("SwitchEntity", (Entity,), {})
     modules["homeassistant.components.switch"].SwitchDeviceClass = types.SimpleNamespace(OUTLET="outlet")
     number_api = modules["homeassistant.components.number"]
@@ -147,6 +151,7 @@ def load_modules():
     modules["homeassistant.const"].UnitOfPower = types.SimpleNamespace(WATT="W", KILO_WATT="kW")
     modules["homeassistant.const"].UnitOfElectricPotential = types.SimpleNamespace(VOLT="V")
     modules["homeassistant.const"].UnitOfElectricCurrent = types.SimpleNamespace(AMPERE="A")
+    modules["homeassistant.const"].UnitOfEnergy = types.SimpleNamespace(KILO_WATT_HOUR="kWh")
     modules["homeassistant.const"].UnitOfFrequency = types.SimpleNamespace(HERTZ="Hz")
     modules["homeassistant.const"].UnitOfTemperature = types.SimpleNamespace(CELSIUS="°C")
     modules["homeassistant.const"].UnitOfTime = types.SimpleNamespace(MINUTES="min")

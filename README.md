@@ -11,6 +11,7 @@
 > WCM frequency uses the user-confirmed register 62 / 10 Hz mapping.
 > WCM current uses the user-confirmed register 61 in mA, divided by 1000 for A.
 > WCM device time uses register 63 to display the weekday and local time in Home Assistant.
+> WCM accumulated energy uses registers 18, 20, 22, and 24 and displays the four outlet values and their sum in kWh.
 > WCM settings include per-outlet button lock, overload and standby cutoff, and auto-off timers.
 > Install a [published release](https://github.com/brain-choi/sihas-canary/releases)
 > from this repository to retain the RCM changes across updates.

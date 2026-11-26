@@ -2,6 +2,7 @@
 
 Outlet registers 0..3 were verified on firmware 03.08, CFG=04. Power
 registers 4..7 matched the app, including simultaneous outlet 3/4 loads.
+Registers 18, 20, 22 and 24 match the per-outlet energy counts in Wh.
 Register 60 is voltage in tenths of a volt, verified against the app.
 Register 61 is current in milliamps, confirmed by the user after the kettle test.
 Register 62 is frequency in tenths of a hertz, confirmed by the user.
@@ -32,6 +33,7 @@ from homeassistant.const import (
     EntityCategory,
     UnitOfElectricCurrent,
     UnitOfElectricPotential,
+    UnitOfEnergy,
     UnitOfFrequency,
     UnitOfPower,
     UnitOfTime,
@@ -53,6 +55,7 @@ from .util import MacConv
 _LOGGER = logging.getLogger(__name__)
 CHANNEL_COUNT = 4
 POWER_REGISTER_START = 4
+ENERGY_REGISTERS = (18, 20, 22, 24)
 VERIFIED_POWER_CHANNELS = frozenset((0, 1, 2, 3))
 VERIFIED_SETTING_CHANNELS = frozenset((1, 3))
 VERIFIED_TIMER_CHANNELS = frozenset((0, 3))
@@ -133,6 +136,10 @@ class WcmState:
         _validate_channel(channel)
         return self.registers[POWER_REGISTER_START + channel]
 
+    def energy_wh(self, channel: int) -> int:
+        _validate_channel(channel)
+        return self.registers[ENERGY_REGISTERS[channel]]
+
     def setting_value(self, channel: int, setting: WcmSetting) -> int | None:
         _validate_channel(channel)
         layout = _SETTING_LAYOUTS[setting]
@@ -143,6 +150,10 @@ class WcmState:
     @property
     def total_power_w(self) -> int:
         return sum(self.registers[POWER_REGISTER_START:POWER_REGISTER_START + CHANNEL_COUNT])
+
+    @property
+    def total_energy_wh(self) -> int:
+        return sum(self.registers[register] for register in ENERGY_REGISTERS)
 
     @property
     def voltage_v(self) -> float:
@@ -436,6 +447,41 @@ class WcmPowerSensor(WcmEntity, SensorEntity):
         if self.channel is None:
             return self.coordinator.data.total_power_w
         return self.coordinator.data.power_w(self.channel)
+
+
+class WcmEnergySensor(WcmEntity, SensorEntity):
+    """Display an outlet's accumulated energy or the sum of all four counters."""
+
+    _attr_device_class = SensorDeviceClass.ENERGY
+    _attr_native_unit_of_measurement = UnitOfEnergy.KILO_WATT_HOUR
+    _attr_suggested_display_precision = 3
+
+    def __init__(self, coordinator: WcmCoordinator, channel: int | None) -> None:
+        if channel is not None:
+            _validate_channel(channel)
+        key = "energy-total" if channel is None else f"energy-{channel + 1}"
+        super().__init__(coordinator, key)
+        self.channel = channel
+        if channel is None:
+            self._attr_name = "전체 누적 사용량"
+            # One outlet can reset without the other three counters resetting.
+            self._attr_state_class = None
+            self._attr_extra_state_attributes = {"calculation": "sum_of_channels"}
+        else:
+            self._attr_name = f"콘센트 {channel + 1} 누적 사용량"
+            self._attr_state_class = SensorStateClass.TOTAL_INCREASING
+            self._attr_extra_state_attributes = {
+                "energy_register": ENERGY_REGISTERS[channel],
+                "register_mapping": "verified",
+            }
+
+    @property
+    def native_value(self) -> float | None:
+        if not self.available or self.coordinator.data is None:
+            return None
+        if self.channel is None:
+            return self.coordinator.data.total_energy_wh / 1000
+        return self.coordinator.data.energy_wh(self.channel) / 1000
 
 
 class WcmVoltageSensor(WcmEntity, SensorEntity):
