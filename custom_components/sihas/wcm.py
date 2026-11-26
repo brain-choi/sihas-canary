@@ -5,6 +5,8 @@ registers 4..7 matched the app, including simultaneous outlet 3/4 loads.
 Register 60 is voltage in tenths of a volt, verified against the app.
 Register 61 is current in milliamps, confirmed by the user after the kettle test.
 Register 62 is frequency in tenths of a hertz, confirmed by the user.
+Register 63 is the device clock in weekday and HHMM format, checked across
+Wednesday and Thursday and confirmed by the user.
 Settings on outlets 2 and 4 match app changes and restoration. The user
 approved applying the corresponding layout to outlets 1 and 3.
 Auto-off timer registers 26 and 29 match app settings on outlets 1 and 4.
@@ -58,6 +60,8 @@ AUTO_OFF_REGISTERS = (26, 27, 28, 29)
 VOLTAGE_REGISTER = 60
 CURRENT_REGISTER = 61
 FREQUENCY_REGISTER = 62
+DEVICE_TIME_REGISTER = 63
+_WEEKDAY_NAMES = ("일요일", "월요일", "화요일", "수요일", "목요일", "금요일", "토요일")
 
 
 def _validate_channel(channel: int) -> None:
@@ -151,6 +155,15 @@ class WcmState:
     @property
     def frequency_hz(self) -> float:
         return self.registers[FREQUENCY_REGISTER] / 10
+
+    @property
+    def device_time(self) -> tuple[int, int, int] | None:
+        """Return the device weekday, hour and minute encoded as decimal DHHMM."""
+        weekday, hhmm = divmod(self.registers[DEVICE_TIME_REGISTER], 10_000)
+        hour, minute = divmod(hhmm, 100)
+        if not 0 <= weekday < len(_WEEKDAY_NAMES) or hour >= 24 or minute >= 60:
+            return None
+        return weekday, hour, minute
 
 
 class WcmClient:
@@ -495,6 +508,31 @@ class WcmFrequencySensor(WcmEntity, SensorEntity):
         if not self.available or self.coordinator.data is None:
             return None
         return self.coordinator.data.frequency_hz
+
+
+class WcmDeviceTimeSensor(WcmEntity, SensorEntity):
+    """Display the device weekday and local wall time."""
+
+    _attr_name = "기기 시간"
+    _attr_icon = "mdi:clock-outline"
+
+    def __init__(self, coordinator: WcmCoordinator) -> None:
+        super().__init__(coordinator, "device-time")
+        self._attr_extra_state_attributes = {
+            "time_register": DEVICE_TIME_REGISTER,
+            "register_mapping": "verified",
+            "mapping_basis": "user_confirmed",
+        }
+
+    @property
+    def native_value(self) -> str | None:
+        if not self.available or self.coordinator.data is None:
+            return None
+        device_time = self.coordinator.data.device_time
+        if device_time is None:
+            return None
+        weekday, hour, minute = device_time
+        return f"{_WEEKDAY_NAMES[weekday]} {hour:02d}:{minute:02d}"
 
 
 def get_coordinator(hass: HomeAssistant, entry: ConfigEntry) -> WcmCoordinator:

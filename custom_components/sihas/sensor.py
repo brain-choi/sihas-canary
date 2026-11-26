@@ -48,6 +48,7 @@ from .sihas_base import SihasEntity, SihasProxy, SihasSubEntity
 from .util import register_put_u32
 from .wcm import (
     WcmCurrentSensor,
+    WcmDeviceTimeSensor,
     WcmFrequencySensor,
     WcmPowerSensor,
     WcmVoltageSensor,
@@ -235,6 +236,7 @@ async def async_setup_entry(
                 WcmVoltageSensor(coordinator),
                 WcmCurrentSensor(coordinator),
                 WcmFrequencySensor(coordinator),
+                WcmDeviceTimeSensor(coordinator),
             ])
 
         case "GCM":

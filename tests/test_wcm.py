@@ -80,6 +80,14 @@ class ClientTests(unittest.TestCase):
         self.device.response_filter = lambda req, resp: bytes.fromhex(fixture["responseHex"])
         self.assertEqual(self.client.read().frequency_hz, fixture["expectedFrequencyHz"])
 
+    def test_device_time_register_from_two_captured_weekdays(self):
+        fixtures = json.loads((ROOT / "tests/fixtures/wcm_device_time_readback.json").read_text())
+        for fixture in fixtures:
+            with self.subTest(raw=fixture["rawDeviceTime"]):
+                builder._pid = int(fixture["requestHex"][:4], 16) - 1
+                self.device.response_filter = lambda req, resp: bytes.fromhex(fixture["responseHex"])
+                self.assertEqual(self.client.read().device_time, tuple(fixture["expectedDeviceTime"]))
+
     def test_current_register_from_captured_kettle_response(self):
         fixture = json.loads((ROOT / "tests/fixtures/wcm_current_6575.json").read_text())
         builder._pid = int(fixture["requestHex"][:4], 16) - 1
@@ -254,6 +262,7 @@ class CoordinatorTests(unittest.IsolatedAsyncioTestCase):
         self.device.registers[60] = 2187
         self.device.registers[61] = 6575
         self.device.registers[62] = 599
+        self.device.registers[63] = 41042
         await self.coordinator.async_config_entry_first_refresh()
         self.hass.data["sihas"] = {self.entry.entry_id: self.coordinator}
         switches = []
@@ -271,6 +280,7 @@ class CoordinatorTests(unittest.IsolatedAsyncioTestCase):
         voltage = wcm.WcmVoltageSensor(self.coordinator)
         current = wcm.WcmCurrentSensor(self.coordinator)
         frequency = wcm.WcmFrequencySensor(self.coordinator)
+        clock = wcm.WcmDeviceTimeSensor(self.coordinator)
         for i, entity in enumerate(outlets):
             self.assertFalse(entity.is_on)
             self.assertEqual(entity._attr_unique_id, f"WCM-aa:bb:cc:dd:ee:ff-outlet-{i+1}")
@@ -279,6 +289,7 @@ class CoordinatorTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(voltage.native_value, 218.7)
         self.assertEqual(current.native_value, 6.575)
         self.assertEqual(frequency.native_value, 59.9)
+        self.assertEqual(clock.native_value, "목요일 10:42")
         self.assertEqual([entity.is_on for entity in locks], [False, True, False, True])
         self.assertEqual([entity.native_value for entity in cutoffs], [1, 5, 4, 1234, 2, 9, 1, 7])
         self.assertEqual(
@@ -296,10 +307,30 @@ class CoordinatorTests(unittest.IsolatedAsyncioTestCase):
         )
         self.assertEqual(timers[0]._attr_unique_id, "WCM-aa:bb:cc:dd:ee:ff-auto-off-timer-1")
         self.assertEqual(durations[1]._attr_unique_id, "WCM-aa:bb:cc:dd:ee:ff-auto-off-time-2")
-        entities = switches + numbers + powers + [total, voltage, current, frequency]
-        self.assertEqual(len({e._attr_unique_id for e in entities}), 32)
+        entities = switches + numbers + powers + [total, voltage, current, frequency, clock]
+        self.assertEqual(len({e._attr_unique_id for e in entities}), 33)
         self.assertTrue(all(e._attr_device_info["identifiers"] == {("sihas", "aa:bb:cc:dd:ee:ff")} for e in entities))
         self.assertEqual([request[7] for request in self.device.calls], [3])
+
+    async def test_device_time_sensor_formats_valid_times_and_recovers(self):
+        clock = wcm.WcmDeviceTimeSensor(self.coordinator)
+        self.assertEqual(clock._attr_name, "기기 시간")
+        self.assertEqual(clock._attr_unique_id, "WCM-aa:bb:cc:dd:ee:ff-device-time")
+        self.assertIsNone(clock.native_value)
+        for raw, expected in (
+            (31625, "수요일 16:25"), (62359, "토요일 23:59"), (0, "일요일 00:00"),
+            (41060, None), (42400, None), (40507, "목요일 05:07"),
+        ):
+            with self.subTest(raw=raw):
+                self.device.registers[63] = raw
+                await self.coordinator.async_refresh()
+                self.assertEqual(clock.native_value, expected)
+        self.device.online = False
+        await self.coordinator.async_refresh()
+        self.assertIsNone(clock.native_value)
+        self.device.online = True
+        await self.coordinator.async_refresh()
+        self.assertEqual(clock.native_value, "목요일 05:07")
 
     async def test_ha_controls_validate_values_and_publish_device_readback(self):
         self.device.registers[8:15] = [0x0002, 0x6460, 0x6160, 0x3000, 0x34D2, 0x3000, 0x3007]
